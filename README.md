@@ -1,6 +1,6 @@
-# 3WayMerge README
+# ThreeWayMerge README
 
-This is the README for your extension "3WayMerge". After writing up a brief description, we recommend including the following sections.
+This is the README for your extension "ThreeWayMerge". After writing up a brief description, we recommend including the following sections.
 
 ## Features
 
