@@ -10,8 +10,28 @@ function getTextDocumentLines(textDocument: vscode.TextDocument): Array<string> 
 	return lines;
 }
 
-const textDocumentLinesToHtml = (lines: Array<string>) =>
-	lines.reduce((html: string, line: string) => html += `<p>${line}</p>`);
+function textDocumentLinesToHtml (lines: Array<string>) {
+	let html = '<table width="100%">';
+
+	lines.forEach((line: string) => {
+		html += '<tr>';
+
+		// left column
+		html += `<td>${line}</td>`;
+
+		// middle column
+		html += `<td>${line}</td>`;
+
+		// right column
+		html += `<td>${line}</td>`;
+		
+		html += '</tr>';
+	});
+
+	html += '</table>';
+
+	return html;
+}
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('ThreeWayMerge extension is activated');
