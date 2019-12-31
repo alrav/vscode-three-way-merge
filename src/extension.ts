@@ -11,7 +11,7 @@ function getTextDocumentLines(textDocument: vscode.TextDocument): Array<string> 
 }
 
 function textDocumentLinesToHtml (lines: Array<string>) {
-	// regexes parse against to determine whether we are in a current changes or incoming changes state
+	// regexes to parse against for determining whether we are in a current changes, divider, or incoming changes line
 	const currentChangesStartRegex = /^<+\s{1}HEAD$/g;
 	const dividerRegex = /^=+$/g;
 	const incomingChangesStartRegex = /^>+\s{1}[^>]+$/g;
@@ -20,9 +20,6 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	let currentChangesActive = false;
 	let incomingChangesActive = false;
 		
-	// CSS rules applying to each state
-	const currentChangeCss = 'style=\'color:green\'';
-
 	function handleChangesStates(line: string) {
 		// if we are on the '<<< HEAD' line, then hide this line and start the highlight
 		if (line.match(currentChangesStartRegex)) {
@@ -37,15 +34,17 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		} else if (line.match(incomingChangesStartRegex)) {
 			incomingChangesActive = false;
 			line = '';
-		// if we are in a state of incomingChangeActive, hide this line
 		}
 
 		return line;
 	}
 
-	function getCurrentChangesLineHtml(line: string) {
-		let style;
+	function getCurrentChangesLineHtml(line: string, lineNumber: number) {
+		let style = '';
+		let button = '';
+		const currentChangesPrefix = 'current-changes';
 		const currentChangesCss = 'style=\'color:green\'';
+		const currentChangesButton = `<button id="${currentChangesPrefix}-button-${lineNumber}" onclick="updateTest(this, \'${currentChangesPrefix}\')">B</button>`;
 
 		// if we are in a state of incomingChangeActive, hide this line from view
 		if (incomingChangesActive) {
@@ -53,16 +52,20 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		// else, just show the regular line
 		} else {
 			style = (currentChangesActive) ? currentChangesCss : '';
+			button = (currentChangesActive) ? currentChangesButton: '';
 		}
 
-		const html = `<td ${style}>${line}</td>`;
+		const html = `<td ${style}><span id="${currentChangesPrefix}-text-${lineNumber}">${line}</span> ${button}</td>`;
 
 		return html;
 	}
 	
-	function getIncomingChangesLineHtml(line: string) {
-		let style;
+	function getIncomingChangesLineHtml(line: string, lineNumber: number) {
+		let style = '';
+		let button = '';
+		const incomingChangesPrefix = 'incoming-changes';
 		const incomingChangesCss = 'style=\'color:green\'';
+		const incomingChangesButton = `<button id="${incomingChangesPrefix}-button-${lineNumber}" onclick="updateTest(this, \'${incomingChangesPrefix}\')">B</button>`;
 
 		// if we are in a state of currentChangeActive, hide this line from view
 		if (currentChangesActive) {
@@ -70,39 +73,42 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		// else, just show the regular line
 		} else {
 			style = (incomingChangesActive) ? incomingChangesCss : '';
+			button = (incomingChangesActive) ? incomingChangesButton: '';
 		}
 
-		const html = `<td ${style}>${line}</td>`;
+		const html = `<td ${style}><span id="${incomingChangesPrefix}-text-${lineNumber}">${line}</span> ${button}</td>`;
 
 		return html;
 	}
 	
-	function getMergeLineHtml(line: string) {
+	function getMergeLineHtml(line: string, lineNumber: number) {
+		const mergePrefix = 'merge';
+		
 		// if we are in a state of currentChangeActive, hide this line from view
 		if (currentChangesActive || incomingChangesActive) {
 			line = '';
 		// else, just show the regular line
 		}
-		const html = `<td>${line}</td>`;
+		const html = `<td><span id="${mergePrefix}-text-${lineNumber}">${line}</span></td>`;
 
 		return html;
 	}
 
 	let html = '<table width="100%">';
 
-	lines.forEach((line: string) => {
+	lines.forEach((line: string, lineNumber: number) => {
 		html += '<tr>';
 
 		line = handleChangesStates(line);
 
 		// left column
-		html += getCurrentChangesLineHtml(line);
+		html += getCurrentChangesLineHtml(line, lineNumber);
 
 		// middle column
-		html += getMergeLineHtml(line);
+		html += getMergeLineHtml(line, lineNumber);
 
 		// right column
-		html += getIncomingChangesLineHtml(line);
+		html += getIncomingChangesLineHtml(line, lineNumber);
 		
 		html += '</tr>';
 	});
@@ -124,6 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
 				'threeWayMerge',
 				`${baseFileName} - merge`,
 				vscode.ViewColumn.One,
+				{ enableScripts: true },
 			);
 
 			panel.webview.html = getWebviewContent(
@@ -144,6 +151,13 @@ return `<!DOCTYPE html>
 </head>
 <body>
 	${textDocumentLinesAsHtml}
+
+	<script>
+		function updateTest(element, changesPrefix) {
+			const elementIndex = element.id.split('-').pop();
+			document.getElementById('merge-text-' + elementIndex).innerText = document.getElementById(changesPrefix + '-text-' + elementIndex).innerText;
+		}
+	</script>
 </body>
 </html>`;
 }
