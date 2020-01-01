@@ -1,7 +1,14 @@
 import * as vscode from 'vscode';
 
-// Different changes states
+// Typescript interfaces
+interface ChangesLineOptions {
+	changesAttributePrefix: string;
+	changesStyleAttributeColor: string;
+	areChangesActive: boolean;
+	areOppositeChangesActive: boolean;
+}
 
+// Different changes states
 /**
  * @constant ${string}
  */
@@ -73,29 +80,39 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		return line;
 	}
 
-	function getCurrentChangesLineHtml(line: string, lineNumber: number) {
+	function getChangesLineHtml(
+		line: string,
+		lineNumber: number,
+		options: ChangesLineOptions,
+	) {
+		const {
+			changesAttributePrefix,
+			changesStyleAttributeColor,
+			areChangesActive,
+			areOppositeChangesActive,
+		} = options;
+
 		let styleAttribute = '';
 		let buttonElement = '';
 		let changesStateAttribute = '';
-		const currentChangesAttributePrefix = 'current-changes';
-		const currentChangesStyleAttribute = 'style=\'color:deepSkyBlue\'';
-		const currentChangesButtonElement = `<button id="${currentChangesAttributePrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${currentChangesAttributePrefix}\')">B</button>`;
+		const changesStyleAttribute = `style="color:${changesStyleAttributeColor}"`;
+		const changesButtonElement = `<button id="${changesAttributePrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${changesAttributePrefix}\')">B</button>`;
 
-		// if we are in a state of incomingChangeActive, hide this line from view
-		if (incomingChangesActive) {
+		// the opposite changes are active, hide this line from view
+		if (areOppositeChangesActive) {
 			line = '';
-		// else, just show the regular line
+			// else, just show the regular line
 		} else {
-			styleAttribute = (currentChangesActive) ? currentChangesStyleAttribute : '';
+			styleAttribute = (areChangesActive) ? changesStyleAttribute : '';
 
 			if ([CHANGES_STATE_CURRENT_START, CHANGES_STATE_INCOMING_START].includes(changesState)) {
-				buttonElement = currentChangesButtonElement;
-			}				
+				buttonElement = changesButtonElement;
+			}
 
 			changesStateAttribute = `${CHANGES_STATE_ATTRIBUTE_KEY}="${changesState}"`;
 		}
 
-		const html = `<td ${styleAttribute}><span id="${currentChangesAttributePrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${buttonElement}</td>`;
+		const html = `<td ${styleAttribute}><span id="${changesAttributePrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${buttonElement}</td>`;
 
 		return html;
 	}
@@ -147,14 +164,24 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 
 		line = handleChangesStates(line);
 
-		// left column
-		html += getIncomingChangesLineHtml(line, lineNumber);
+		// left column - current changes
+		html += getChangesLineHtml(line, lineNumber, {
+			changesAttributePrefix: 'incoming-changes',
+			changesStyleAttributeColor: 'green',
+			areChangesActive: incomingChangesActive,
+			areOppositeChangesActive: currentChangesActive
+		});
 
 		// middle column
 		html += getMergeLineHtml(line, lineNumber);
 
-		// right column
-		html += getCurrentChangesLineHtml(line, lineNumber);
+		// right column - incoming changes
+		html += getChangesLineHtml(line, lineNumber, {
+			changesAttributePrefix: 'current-changes',
+			changesStyleAttributeColor: 'deepSkyBlue',
+			areChangesActive: currentChangesActive,
+			areOppositeChangesActive: incomingChangesActive
+		});
 		
 		html += '</tr>';
 	});
