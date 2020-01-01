@@ -74,68 +74,68 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	}
 
 	function getCurrentChangesLineHtml(line: string, lineNumber: number) {
-		let style = '';
-		let button = '';
+		let styleAttribute = '';
+		let buttonElement = '';
 		let changesStateAttribute = '';
-		const currentChangesPrefix = 'current-changes';
-		const currentChangesCss = 'style=\'color:green\'';
-		const currentChangesButton = `<button id="${currentChangesPrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${currentChangesPrefix}\')">B</button>`;
+		const currentChangesAttributePrefix = 'current-changes';
+		const currentChangesStyleAttribute = 'style=\'color:deepSkyBlue\'';
+		const currentChangesButtonElement = `<button id="${currentChangesAttributePrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${currentChangesAttributePrefix}\')">B</button>`;
 
 		// if we are in a state of incomingChangeActive, hide this line from view
 		if (incomingChangesActive) {
 			line = '';
 		// else, just show the regular line
 		} else {
-			style = (currentChangesActive) ? currentChangesCss : '';
+			styleAttribute = (currentChangesActive) ? currentChangesStyleAttribute : '';
 
 			if ([CHANGES_STATE_CURRENT_START, CHANGES_STATE_INCOMING_START].includes(changesState)) {
-				button = currentChangesButton;
+				buttonElement = currentChangesButtonElement;
 			}				
 
 			changesStateAttribute = `${CHANGES_STATE_ATTRIBUTE_KEY}="${changesState}"`;
 		}
 
-		const html = `<td ${style}><span id="${currentChangesPrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${button}</td>`;
+		const html = `<td ${styleAttribute}><span id="${currentChangesAttributePrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${buttonElement}</td>`;
 
 		return html;
 	}
 	
 	function getIncomingChangesLineHtml(line: string, lineNumber: number) {
-		let style = '';
-		let button = '';
+		let styleAttribute = '';
+		let buttonElement = '';
 		let changesStateAttribute = '';
-		const incomingChangesPrefix = 'incoming-changes';
-		const incomingChangesCss = 'style=\'color:deepSkyBlue\'';
-		const incomingChangesButton = `<button id="${incomingChangesPrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${incomingChangesPrefix}\')">B</button>`;
+		const incomingChangesAttributePrefix = 'incoming-changes';
+		const incomingChangesStyleAttribute = 'style=\'color:green\'';
+		const incomingChangesButtonElement = `<button id="${incomingChangesAttributePrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${incomingChangesAttributePrefix}\')">B</button>`;
 
 		// if we are in a state of incomingChangesActive, hide this line from view
 		if (currentChangesActive) {
 			line = '';
 		// else, just show the regular line
 		} else {
-			style = (incomingChangesActive) ? incomingChangesCss : '';
+			styleAttribute = (incomingChangesActive) ? incomingChangesStyleAttribute : '';
 
 			if ([CHANGES_STATE_CURRENT_START, CHANGES_STATE_INCOMING_START].includes(changesState)) {
-				button = incomingChangesButton;
+				buttonElement = incomingChangesButtonElement;
 			}				
 
 			changesStateAttribute = `${CHANGES_STATE_ATTRIBUTE_KEY}="${changesState}"`;
 		}
 
-		const html = `<td ${style}><span id="${incomingChangesPrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${button}</td>`;
+		const html = `<td ${styleAttribute}><span id="${incomingChangesAttributePrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${buttonElement}</td>`;
 
 		return html;
 	}
 	
 	function getMergeLineHtml(line: string, lineNumber: number) {
-		const mergePrefix = 'merge';
+		const mergeAttributePrefix = 'merge';
 		
 		// if we are in a state of currentChangeActive, hide this line from view
 		if (currentChangesActive || incomingChangesActive) {
 			line = '';
 		// else, just show the regular line
 		}
-		const html = `<td><span id="${mergePrefix}-text-${lineNumber}">${line}</span></td>`;
+		const html = `<td><span id="${mergeAttributePrefix}-text-${lineNumber}">${line}</span></td>`;
 
 		return html;
 	}
@@ -148,13 +148,13 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		line = handleChangesStates(line);
 
 		// left column
-		html += getCurrentChangesLineHtml(line, lineNumber);
+		html += getIncomingChangesLineHtml(line, lineNumber);
 
 		// middle column
 		html += getMergeLineHtml(line, lineNumber);
 
 		// right column
-		html += getIncomingChangesLineHtml(line, lineNumber);
+		html += getCurrentChangesLineHtml(line, lineNumber);
 		
 		html += '</tr>';
 	});
