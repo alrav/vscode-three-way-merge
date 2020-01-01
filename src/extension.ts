@@ -1,5 +1,32 @@
 import * as vscode from 'vscode';
 
+// Different changes states
+
+/**
+ * @constant ${string}
+ */
+const CHANGES_STATE_CURRENT_START = 'currentStart';
+
+/**
+ * @constant ${string}
+ */
+const CHANGES_STATE_CONTENT = 'currentContent';
+
+/**
+ * @constant ${string}
+ */
+const CHANGES_STATE_INCOMING_START = 'incomingStart';
+
+/**
+ * @constant ${string}
+ */
+const CHANGES_STATE_INCOMING_END = 'incomingEnd';
+
+/**
+ * @constant ${string}
+ */
+const CHANGES_STATE_ATTRIBUTE_KEY = 'data-changes-state';
+
 function getTextDocumentLines(textDocument: vscode.TextDocument): Array<string> {
 	const lines = [];
 
@@ -19,21 +46,28 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	// flags to determine whether we are in current changes (left column), or incoming changes (right column) state
 	let currentChangesActive = false;
 	let incomingChangesActive = false;
+
+	let changesState: string;
 		
 	function handleChangesStates(line: string) {
 		// if we are on the '<<< HEAD' line, then hide this line and start the highlight
 		if (line.match(currentChangesStartRegex)) {
 			currentChangesActive = true;
+			changesState = CHANGES_STATE_CURRENT_START;
 			line = '';
 		// if we are on the '====' divider line, then hide this line, end the current changes highlight, and start the incoming changes highlight
 		} else if (line.match(dividerRegex)) {
 			currentChangesActive = false;
 			incomingChangesActive = true;
+			changesState = CHANGES_STATE_INCOMING_START;
 			line = '';
 		// if we are on the '>>> {my_branch}' divider line, then hide this line and set the incoming changes active flag to false
 		} else if (line.match(incomingChangesStartRegex)) {
 			incomingChangesActive = false;
+			changesState = CHANGES_STATE_INCOMING_END;
 			line = '';
+		} else {
+			changesState = CHANGES_STATE_CONTENT;
 		}
 
 		return line;
@@ -42,9 +76,10 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	function getCurrentChangesLineHtml(line: string, lineNumber: number) {
 		let style = '';
 		let button = '';
+		let changesStateAttribute = '';
 		const currentChangesPrefix = 'current-changes';
 		const currentChangesCss = 'style=\'color:green\'';
-		const currentChangesButton = `<button id="${currentChangesPrefix}-button-${lineNumber}" onclick="updateTest(this, \'${currentChangesPrefix}\')">B</button>`;
+		const currentChangesButton = `<button id="${currentChangesPrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${currentChangesPrefix}\')">B</button>`;
 
 		// if we are in a state of incomingChangeActive, hide this line from view
 		if (incomingChangesActive) {
@@ -52,10 +87,15 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		// else, just show the regular line
 		} else {
 			style = (currentChangesActive) ? currentChangesCss : '';
-			button = (currentChangesActive) ? currentChangesButton: '';
+
+			if ([CHANGES_STATE_CURRENT_START, CHANGES_STATE_INCOMING_START].includes(changesState)) {
+				button = currentChangesButton;
+			}				
+
+			changesStateAttribute = `${CHANGES_STATE_ATTRIBUTE_KEY}="${changesState}"`;
 		}
 
-		const html = `<td ${style}><span id="${currentChangesPrefix}-text-${lineNumber}">${line}</span> ${button}</td>`;
+		const html = `<td ${style}><span id="${currentChangesPrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${button}</td>`;
 
 		return html;
 	}
@@ -63,20 +103,26 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	function getIncomingChangesLineHtml(line: string, lineNumber: number) {
 		let style = '';
 		let button = '';
+		let changesStateAttribute = '';
 		const incomingChangesPrefix = 'incoming-changes';
-		const incomingChangesCss = 'style=\'color:green\'';
-		const incomingChangesButton = `<button id="${incomingChangesPrefix}-button-${lineNumber}" onclick="updateTest(this, \'${incomingChangesPrefix}\')">B</button>`;
+		const incomingChangesCss = 'style=\'color:deepSkyBlue\'';
+		const incomingChangesButton = `<button id="${incomingChangesPrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${incomingChangesPrefix}\')">B</button>`;
 
-		// if we are in a state of currentChangeActive, hide this line from view
+		// if we are in a state of incomingChangesActive, hide this line from view
 		if (currentChangesActive) {
 			line = '';
 		// else, just show the regular line
 		} else {
 			style = (incomingChangesActive) ? incomingChangesCss : '';
-			button = (incomingChangesActive) ? incomingChangesButton: '';
+
+			if ([CHANGES_STATE_CURRENT_START, CHANGES_STATE_INCOMING_START].includes(changesState)) {
+				button = incomingChangesButton;
+			}				
+
+			changesStateAttribute = `${CHANGES_STATE_ATTRIBUTE_KEY}="${changesState}"`;
 		}
 
-		const html = `<td ${style}><span id="${incomingChangesPrefix}-text-${lineNumber}">${line}</span> ${button}</td>`;
+		const html = `<td ${style}><span id="${incomingChangesPrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${button}</td>`;
 
 		return html;
 	}
@@ -153,9 +199,26 @@ return `<!DOCTYPE html>
 	${textDocumentLinesAsHtml}
 
 	<script>
-		function updateTest(element, changesPrefix) {
-			const elementIndex = element.id.split('-').pop();
-			document.getElementById('merge-text-' + elementIndex).innerText = document.getElementById(changesPrefix + '-text-' + elementIndex).innerText;
+		function getChangesElementLineSpan(changesPrefix, changesElementIndex) {
+			return document.getElementById(changesPrefix + '-text-' + changesElementIndex);
+		}
+
+		function pickMergeColumnChange(element, changesPrefix) {
+			let changesElementIndex = element.id.split('-').pop();
+
+			// increment one to get into the content state
+			changesElementIndex++;
+
+			let changesElementState = getChangesElementLineSpan(changesPrefix, changesElementIndex).getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}');
+
+
+			while (changesElementState === '${CHANGES_STATE_CONTENT}') {
+				const mergeElementLineSpan = document.getElementById('merge-text-' + changesElementIndex); 
+				const changesElementLineSpan = getChangesElementLineSpan(changesPrefix, changesElementIndex);
+				changesElementState = changesElementLineSpan.getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}'); 
+				mergeElementLineSpan.innerText = changesElementLineSpan.innerText;
+				changesElementIndex++;
+			}
 		}
 	</script>
 </body>
