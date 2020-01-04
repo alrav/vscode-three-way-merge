@@ -17,7 +17,7 @@ const CHANGES_STATE_CURRENT_START = 'currentStart';
 /**
  * @constant ${string}
  */
-const CHANGES_STATE_CONTENT = 'currentContent';
+const CHANGES_STATE_CONTENT = 'content';
 
 /**
  * @constant ${string}
