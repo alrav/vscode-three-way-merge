@@ -57,22 +57,16 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	let changesState: string;
 		
 	function handleChangesStates(line: string) {
-		// if we are on the '<<< HEAD' line, then hide this line and start the highlight
 		if (line.match(currentChangesStartRegex)) {
 			currentChangesActive = true;
 			changesState = CHANGES_STATE_CURRENT_START;
-			line = '';
-		// if we are on the '====' divider line, then hide this line, end the current changes highlight, and start the incoming changes highlight
 		} else if (line.match(dividerRegex)) {
 			currentChangesActive = false;
 			incomingChangesActive = true;
 			changesState = CHANGES_STATE_INCOMING_START;
-			line = '';
-		// if we are on the '>>> {my_branch}' divider line, then hide this line and set the incoming changes active flag to false
 		} else if (line.match(incomingChangesStartRegex)) {
 			incomingChangesActive = false;
 			changesState = CHANGES_STATE_INCOMING_END;
-			line = '';
 		} else {
 			changesState = CHANGES_STATE_CONTENT;
 		}
@@ -98,7 +92,15 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		const changesStyleAttribute = `style="color:${changesStyleAttributeColor}"`;
 		const changesButtonElement = `<button id="${changesAttributePrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${changesAttributePrefix}\')">B</button>`;
 
-		// the opposite changes are active, hide this line from view
+		// hide '<<< HEAD', '===' divider line, and '>>> {my_branch}'
+		switch (changesState) {
+			case CHANGES_STATE_CURRENT_START:
+			case CHANGES_STATE_INCOMING_START:
+			case CHANGES_STATE_INCOMING_END:
+				line = '';
+		}
+
+		// the opposite changes are active, hide those lines from view
 		if (areOppositeChangesActive) {
 			line = '';
 			// else, just show the regular line
@@ -117,41 +119,10 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		return html;
 	}
 	
-	function getIncomingChangesLineHtml(line: string, lineNumber: number) {
-		let styleAttribute = '';
-		let buttonElement = '';
-		let changesStateAttribute = '';
-		const incomingChangesAttributePrefix = 'incoming-changes';
-		const incomingChangesStyleAttribute = 'style=\'color:green\'';
-		const incomingChangesButtonElement = `<button id="${incomingChangesAttributePrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${incomingChangesAttributePrefix}\')">B</button>`;
-
-		// if we are in a state of incomingChangesActive, hide this line from view
-		if (currentChangesActive) {
-			line = '';
-		// else, just show the regular line
-		} else {
-			styleAttribute = (incomingChangesActive) ? incomingChangesStyleAttribute : '';
-
-			if ([CHANGES_STATE_CURRENT_START, CHANGES_STATE_INCOMING_START].includes(changesState)) {
-				buttonElement = incomingChangesButtonElement;
-			}				
-
-			changesStateAttribute = `${CHANGES_STATE_ATTRIBUTE_KEY}="${changesState}"`;
-		}
-
-		const html = `<td ${styleAttribute}><span id="${incomingChangesAttributePrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${buttonElement}</td>`;
-
-		return html;
-	}
-	
 	function getMergeLineHtml(line: string, lineNumber: number) {
 		const mergeAttributePrefix = 'merge';
 		
-		// if we are in a state of currentChangeActive, hide this line from view
-		if (currentChangesActive || incomingChangesActive) {
-			line = '';
-		// else, just show the regular line
-		}
+		// for the middle merge column, show initial conflicted content
 		const html = `<td><span id="${mergeAttributePrefix}-text-${lineNumber}">${line}</span></td>`;
 
 		return html;
