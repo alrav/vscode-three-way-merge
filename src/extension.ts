@@ -12,7 +12,7 @@ interface ChangesLineOptions {
 /**
  * @constant ${string}
  */
-const CHANGES_STATE_CURRENT_START = 'currentStart';
+const CHANGES_STATE_INCOMING_START = 'incomingStart';
 
 /**
  * @constant ${string}
@@ -22,12 +22,12 @@ const CHANGES_STATE_CONTENT = 'content';
 /**
  * @constant ${string}
  */
-const CHANGES_STATE_INCOMING_START = 'incomingStart';
+const CHANGES_STATE_YOUR_START = 'yourStart';
 
 /**
  * @constant ${string}
  */
-const CHANGES_STATE_INCOMING_END = 'incomingEnd';
+const CHANGES_STATE_YOUR_END = 'yourEnd';
 
 /**
  * @constant ${string}
@@ -45,28 +45,28 @@ function getTextDocumentLines(textDocument: vscode.TextDocument): Array<string> 
 }
 
 function textDocumentLinesToHtml (lines: Array<string>) {
-	// regexes to parse against for determining whether we are in a current changes, divider, or incoming changes line
-	const currentChangesStartRegex = /^<+\s{1}HEAD$/g;
+	// regexes to parse against for determining whether we are in a incoming changes, divider, or your changes line
+	const incomingChangesStartRegex = /^<+\s{1}HEAD$/g;
 	const dividerRegex = /^=+$/g;
-	const incomingChangesStartRegex = /^>+\s{1}[^>]+$/g;
+	const yourChangesStartRegex = /^>+\s{1}[^>]+$/g;
 	
-	// flags to determine whether we are in current changes (left column), or incoming changes (right column) state
-	let currentChangesActive = false;
+	// flags to determine whether we are in incoming changes (left column), or your changes (right column) state
 	let incomingChangesActive = false;
+	let yourChangesActive = false;
 
 	let changesState: string;
 		
 	function handleChangesStates(line: string) {
-		if (line.match(currentChangesStartRegex)) {
-			currentChangesActive = true;
-			changesState = CHANGES_STATE_CURRENT_START;
-		} else if (line.match(dividerRegex)) {
-			currentChangesActive = false;
+		if (line.match(incomingChangesStartRegex)) {
 			incomingChangesActive = true;
 			changesState = CHANGES_STATE_INCOMING_START;
-		} else if (line.match(incomingChangesStartRegex)) {
+		} else if (line.match(dividerRegex)) {
 			incomingChangesActive = false;
-			changesState = CHANGES_STATE_INCOMING_END;
+			yourChangesActive = true;
+			changesState = CHANGES_STATE_YOUR_START;
+		} else if (line.match(yourChangesStartRegex)) {
+			yourChangesActive = false;
+			changesState = CHANGES_STATE_YOUR_END;
 		} else {
 			changesState = CHANGES_STATE_CONTENT;
 		}
@@ -94,9 +94,9 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 
 		// hide '<<< HEAD', '===' divider line, and '>>> {my_branch}'
 		switch (changesState) {
-			case CHANGES_STATE_CURRENT_START:
 			case CHANGES_STATE_INCOMING_START:
-			case CHANGES_STATE_INCOMING_END:
+			case CHANGES_STATE_YOUR_START:
+			case CHANGES_STATE_YOUR_END:
 				line = '';
 		}
 
@@ -107,7 +107,7 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		} else {
 			styleAttribute = (areChangesActive) ? changesStyleAttribute : '';
 
-			if ([CHANGES_STATE_CURRENT_START, CHANGES_STATE_INCOMING_START].includes(changesState)) {
+			if ([CHANGES_STATE_INCOMING_START, CHANGES_STATE_YOUR_START].includes(changesState)) {
 				buttonElement = changesButtonElement;
 			}
 
@@ -135,23 +135,23 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 
 		line = handleChangesStates(line);
 
-		// left column - current changes
+		// left column - incoming changes
 		html += getChangesLineHtml(line, lineNumber, {
-			changesAttributePrefix: 'incoming-changes',
+			changesAttributePrefix: 'your-changes',
 			changesStyleAttributeColor: 'green',
-			areChangesActive: incomingChangesActive,
-			areOppositeChangesActive: currentChangesActive
+			areChangesActive: yourChangesActive,
+			areOppositeChangesActive: incomingChangesActive
 		});
 
 		// middle column
 		html += getMergeLineHtml(line, lineNumber);
 
-		// right column - incoming changes
+		// right column - your changes
 		html += getChangesLineHtml(line, lineNumber, {
-			changesAttributePrefix: 'current-changes',
+			changesAttributePrefix: 'incoming-changes',
 			changesStyleAttributeColor: 'deepSkyBlue',
-			areChangesActive: currentChangesActive,
-			areOppositeChangesActive: incomingChangesActive
+			areChangesActive: incomingChangesActive,
+			areOppositeChangesActive: yourChangesActive
 		});
 		
 		html += '</tr>';
@@ -205,12 +205,23 @@ return `<!DOCTYPE html>
 			let changesElementIndex = element.id.split('-').pop();
 
 			// increment one to get into the content state
-			changesElementIndex++;
+			//changesElementIndex++;
 
 			let changesElementState = getChangesElementLineSpan(changesPrefix, changesElementIndex).getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}');
 
+			let terminationState;
 
-			while (changesElementState === '${CHANGES_STATE_CONTENT}') {
+			console.log(changesPrefix);
+
+			// if we are in incoming-changes, then replace until YOUR_START
+			if (changesPrefix === 'your-changes') {
+				terminationState = '${CHANGES_STATE_YOUR_START}';
+            // else, replace until YOUR_END
+			} else {
+				terminationState = '${CHANGES_STATE_YOUR_END}';
+			}
+
+			while (changesElementState === terminationState) {
 				const mergeElementLineSpan = document.getElementById('merge-text-' + changesElementIndex); 
 				const changesElementLineSpan = getChangesElementLineSpan(changesPrefix, changesElementIndex);
 				changesElementState = changesElementLineSpan.getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}'); 
