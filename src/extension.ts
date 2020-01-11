@@ -132,7 +132,7 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 			changesStateAttribute = `${CHANGES_STATE_ATTRIBUTE_KEY}="${changesState}"`;
 		}
 
-		const html = `<td ${styleAttribute}><span id="${changesAttributePrefix}-text-${lineNumber}" ${changesStateAttribute}>${line}</span> ${buttonElement}</td>`;
+		const html = `<td><span id="${changesAttributePrefix}-text-${lineNumber}"  ${styleAttribute} ${changesStateAttribute}>${line}</span> ${buttonElement}</td>`;
 
 		return html;
 	}
@@ -140,8 +140,15 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	function getMergeLineHtml(line: string, lineNumber: number) {
 		const mergeAttributePrefix = 'merge';
 		
+		let styleAttribute = '';
+		const conflictStyleAttribute = `style="color:red"`;
+		
 		// for the middle merge column, show initial conflicted content
-		const html = `<td><span id="${mergeAttributePrefix}-text-${lineNumber}">${line}</span></td>`;
+		if (incomingChangesActive || yourChangesActive) {
+			styleAttribute = conflictStyleAttribute;
+		}
+
+		const html = `<td><span id="${mergeAttributePrefix}-text-${lineNumber}" ${styleAttribute}>${line}</span></td>`;
 
 		return html;
 	}
@@ -232,6 +239,7 @@ return `<!DOCTYPE html>
 				const changesElementLineSpan = getChangesElementLineSpan(changesPrefix, counter);
 				changesElementState = changesElementLineSpan.getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}'); 
 				mergeElementLineSpan.innerText = changesElementLineSpan.innerText;
+				mergeElementLineSpan.setAttribute('style', changesElementLineSpan.getAttribute('style'));
 				counter++;
 			}
 		}
