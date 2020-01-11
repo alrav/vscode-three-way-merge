@@ -34,6 +34,11 @@ const CHANGES_STATE_YOUR_END = 'yourEnd';
  */
 const CHANGES_STATE_ATTRIBUTE_KEY = 'data-changes-state';
 
+/**
+ * @constant ${string}
+ */
+const CONFLICT_START_LINE_NUMBER_ATTRIBUTE_KEY = 'data-conflict-start-line-number';
+
 function getTextDocumentLines(textDocument: vscode.TextDocument): Array<string> {
 	const lines = [];
 
@@ -55,6 +60,9 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	let yourChangesActive = false;
 
 	let changesState: string;
+
+	// the start line number of the conflict so that we can reference it later to determine the merge replacment range
+	let conflictStartLineNumber: number;
 		
 	function handleChangesStates(line: string) {
 		if (line.match(incomingChangesStartRegex)) {
@@ -89,8 +97,8 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		let styleAttribute = '';
 		let buttonElement = '';
 		let changesStateAttribute = '';
+		let conflictStartLineNumberAttribute = '';
 		const changesStyleAttribute = `style="color:${changesStyleAttributeColor}"`;
-		const changesButtonElement = `<button id="${changesAttributePrefix}-button-${lineNumber}" onclick="pickMergeColumnChange(this, \'${changesAttributePrefix}\')">B</button>`;
 
 		// hide '<<< HEAD', '===' divider line, and '>>> {my_branch}'
 		switch (changesState) {
@@ -103,11 +111,21 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 		// the opposite changes are active, hide those lines from view
 		if (areOppositeChangesActive) {
 			line = '';
-			// else, just show the regular line
 		} else {
 			styleAttribute = (areChangesActive) ? changesStyleAttribute : '';
 
 			if ([CHANGES_STATE_INCOMING_START, CHANGES_STATE_YOUR_START].includes(changesState)) {
+				// if we are in 'incomingChanges', store the start line of the conflict
+				if (changesAttributePrefix === 'incoming-changes') {
+					conflictStartLineNumber = lineNumber;
+				}
+
+				// then, attach it as a reference attribute for both of the _START states
+				// we really don't need to attach it for incomingChanges since it is inherently the start line of the conflict
+				// but this way we relieve the view from having to know about this
+				conflictStartLineNumberAttribute = `${CONFLICT_START_LINE_NUMBER_ATTRIBUTE_KEY}=${conflictStartLineNumber}`;
+				
+				const changesButtonElement = `<button id="${changesAttributePrefix}-button-${lineNumber}" ${conflictStartLineNumberAttribute} onclick="pickMergeColumnChange(this, \'${changesAttributePrefix}\')">B</button>`;
 				buttonElement = changesButtonElement;
 			}
 
@@ -202,31 +220,19 @@ return `<!DOCTYPE html>
 		}
 
 		function pickMergeColumnChange(element, changesPrefix) {
-			let changesElementIndex = element.id.split('-').pop();
+			const conflictStartLineNumber = element.getAttribute('${CONFLICT_START_LINE_NUMBER_ATTRIBUTE_KEY}');
 
-			// increment one to get into the content state
-			//changesElementIndex++;
+			let changesElementState = getChangesElementLineSpan(changesPrefix, conflictStartLineNumber).getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}');
 
-			let changesElementState = getChangesElementLineSpan(changesPrefix, changesElementIndex).getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}');
+			let counter = conflictStartLineNumber;
 
-			let terminationState;
-
-			console.log(changesPrefix);
-
-			// if we are in incoming-changes, then replace until YOUR_START
-			if (changesPrefix === 'your-changes') {
-				terminationState = '${CHANGES_STATE_YOUR_START}';
-            // else, replace until YOUR_END
-			} else {
-				terminationState = '${CHANGES_STATE_YOUR_END}';
-			}
-
-			while (changesElementState === terminationState) {
-				const mergeElementLineSpan = document.getElementById('merge-text-' + changesElementIndex); 
-				const changesElementLineSpan = getChangesElementLineSpan(changesPrefix, changesElementIndex);
+			// iterate from the conflict start line until the YOUR_END change state is reached
+			while (changesElementState !== '${CHANGES_STATE_YOUR_END}') {
+				const mergeElementLineSpan = document.getElementById('merge-text-' + counter); 
+				const changesElementLineSpan = getChangesElementLineSpan(changesPrefix, counter);
 				changesElementState = changesElementLineSpan.getAttribute('${CHANGES_STATE_ATTRIBUTE_KEY}'); 
 				mergeElementLineSpan.innerText = changesElementLineSpan.innerText;
-				changesElementIndex++;
+				counter++;
 			}
 		}
 	</script>
