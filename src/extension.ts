@@ -49,6 +49,10 @@ function getTextDocumentLines(textDocument: vscode.TextDocument): Array<string> 
 	return lines;
 }
 
+function getTableHeadersHtml() {
+	return '<tr><th>Your Changes</th><th>Merged Changes</th><th>Incoming Changes</th></tr>';
+}
+
 function textDocumentLinesToHtml (lines: Array<string>) {
 	// regexes to parse against for determining whether we are in a incoming changes, divider, or your changes line
 	const incomingChangesStartRegex = /^<+\s{1}HEAD$/g;
@@ -154,6 +158,8 @@ function textDocumentLinesToHtml (lines: Array<string>) {
 	}
 
 	let html = '<table width="100%">';
+
+	html += getTableHeadersHtml();
 
 	lines.forEach((line: string, lineNumber: number) => {
 		html += '<tr>';
